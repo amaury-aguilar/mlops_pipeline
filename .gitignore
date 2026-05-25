@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VSCode
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# ML models
+models/*.pkl
+models/*.joblib
+models/*.h5
+
+# Data
+data/raw/
+data/intermediate/
+data/processed/
+
+# MLflow
+mlruns/
+
+# DVC
+.dvc/cache/
+
+# Environment variables
+.env
+
+# Coverage
+.coverage
+htmlcov/
+
+# Pytest
+.pytest_cache/
+
+# Docker
+*.tar
+
+# Temporary files
+tmp/
+temp/
