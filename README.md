@@ -13,12 +13,8 @@ End-to-end Machine Learning and MLOps pipeline for financial applications.
 ## Repository Structure
 
 ```text
-project/
-├── data/
-├── notebooks/
-├── src/
-├── tests/
-├── configs/
-├── models/
-├── pipelines/
-└── docs/
+mlops_pipeline/
+├── Base_de_datos.csv
+├── README.md
+├── requirements.txt
+└── src/
