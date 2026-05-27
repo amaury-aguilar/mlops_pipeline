@@ -1,0 +1,12 @@
+# Dependencias para ejecutar la etapa PyCaret en Python 3.11
+# Mantener separado de requirements.txt principal para no romper el entorno 3.13
+
+pycaret==3.3.2
+xgboost==2.1.1
+scikit-learn==1.4.2
+pandas==2.1.4
+numpy==1.26.4
+ipywidgets>=8.0.0
+jupyter
+notebook
+ipykernel
