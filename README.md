@@ -169,23 +169,26 @@ Endpoints principales:
 - `POST /predict` para lotes en JSON.
 - `POST /predict/csv` para lotes desde archivo CSV.
 
-## Paso 5: Calidad de codigo con Sonar
+## Paso 5: Calidad de código con Sonar
 
-Se agrego pipeline de CI con Quality Gate:
+Se agregó un pipeline de CI con Quality Gate:
 
 - Workflow: `.github/workflows/ci-sonar.yml`
-- configuración Sonar: `sonar-project.properties`
 
-Requiere una configuración inicial minima en GitHub y Sonar: definir `sonar.projectKey` / `sonar.projectName` y cargar los secrets `SONAR_HOST_URL` y `SONAR_TOKEN` sin exponer sus valores.
+Quedó implementada una configuración mínima de SonarCloud como parte del pipeline de CI del proyecto, centralizada en un único archivo de workflow.
+
+Requiere una configuración inicial mínima en GitHub y Sonar: mantener `SONAR_HOST_URL` y `SONAR_TOKEN` como secrets, sin exponer sus valores.
+
+Esta implementación aporta certeza operativa al pipeline porque valida automáticamente, en cada push/PR a main/master, la compilación de scripts críticos, la construcción de la imagen Docker, el análisis estático y el Quality Gate de SonarCloud.
 
 Qué valida el workflow:
 
 - Compilación de scripts Python clave.
 - Build Docker smoke test de la API.
-- Analisis estatico con Sonar.
-- Validacion de Quality Gate (pass/fail del pipeline).
+- Análisis estático con Sonar.
+- Validación de Quality Gate (pass/fail del pipeline).
 
-## Interpretacion de resultados
+## Interpretación de resultados
 
 Para entrenamiento:
 - Revisar src/model_training_evaluation_audit.json y su guia en src/model_training_evaluation_audit_guide.txt.

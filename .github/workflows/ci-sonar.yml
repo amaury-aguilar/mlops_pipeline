@@ -41,6 +41,14 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v6
         with:
           args: >
+            -Dsonar.projectKey=amaury-aguilar_mlops_pipeline
+            -Dsonar.projectName=mlops_pipeline
+            -Dsonar.organization=amaury-aguilar
+            -Dsonar.projectVersion=1.0
+            -Dsonar.sources=src
+            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.exclusions=**/*.ipynb,**/__pycache__/**,**/monitoring_outputs/**
+            -Dsonar.coverage.exclusions=**/*.py
             -Dsonar.verbose=true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
