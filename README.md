@@ -1,21 +1,21 @@
-# Predicción de Comportamiento de Credito
+# Predicción de Comportamiento de Crédito
 
 Este proyecto construye y opera un modelo de riesgo crediticio para anticipar el comportamiento de pago de nuevos clientes a partir de historicos de credito.
 
 ## Caso de negocio
 
-En una entidad financiera, decidir bien en principio reduce perdidas por incumplimiento y mejora la asignacion de capital. El objetivo de esta solución es apoyar decisiones de riesgo con evidencia cuantitativa, trazable y monitoreable en el tiempo.
+En una entidad financiera, decidir bien en principio reduce perdidas por incumplimiento y mejora la asignación  de capital. El objetivo de esta solución es apoyar decisiónes de riesgo con evidencia cuantitativa, trazable y monitoreable en el tiempo.
 
 Objetivos de negocio:
 - Estimar riesgo de no pago para nuevos solicitantes.
-- Mejorar decisiones de aprobación y priorización de revisiones.
+- Mejorar decisiónes de aprobación y priorización de revisiones.
 - Reducir degradacion silenciosa del modelo mediante monitoreo de drift.
 
 ## Objetivos analíticos
 
 - Preparar y transformar datos de crédito con reglas reproducibles.
 - Entrenar y evaluar modelos supervisados con métricas adecuadas para desbalance.
-- Optimizar umbral de decision con enfoque de costo.
+- Optimizar umbral de decisión con enfoque de costo.
 - Monitorear cambios de población que puedan afectar desempeño.
 
 ## Principales hallazgos
@@ -27,19 +27,18 @@ Objetivos de negocio:
 
 Resumen ejecutivo de data drift:
 - Hallazgo: estado global aceptable (ok) y drift agregado bajo en las corridas iniciales.
-	Impacto: no se observa deterioro inmediato que comprometa decisiones de origen.
-	Accion: mantener operacion normal con monitoreo periodico.
+	Impacto: no se observa deterioro inmediato que comprometa decisiónes de origen.
+	Accion: mantener operacion normal con monitoreo periódico.
 - Hallazgo: no hay concentracion critica de variables en severidad alta.
 	Impacto: estabilidad poblacional suficiente en la ventana evaluada.
 	Accion: sostener seguimiento y confirmar consistencia en nuevas corridas.
 - Hallazgo: variables financieras como total de otros prestamos, promedio de ingresos reportados y salario muestran mayor sensibilidad al cambio.
 	Impacto: principal riesgo de mediano plazo por deriva gradual, no por ruptura abrupta.
-	Accion: priorizar estas variables en el tablero y activar recalibracion/retraining si la severidad aumenta de forma sostenida.
+	Accion: priorizar estas variables en el tablero y activar recalibración/retraining si la severidad aumenta de forma sostenida.
 
-## Graficas
+## Gráficas
 
 1. Estabilidad global del modelo en el tiempo.
-	- Serie temporal del drift agregado con bandas ok/warning/critical.
 	- Riesgo de deriva global: estable, con vigilancia activa.
 	- Estado actual OK; no hay evidencia de deterioro abrupto.
 	- Recomendación: la situacion es estable hoy, pero debe vigilarse la tendencia.
@@ -47,7 +46,6 @@ Resumen ejecutivo de data drift:
 ![Riesgo de deriva global](fig_01_estabilidad_global.png)
 
 2. Variables que explican el riesgo de deriva.
-	- Tipo: barras horizontales Top 5 variables con mayor severidad de drift.
 	- La deriva se concentra en pocas variables criticas.
 	- El riesgo no es generalizado; se focaliza en variables financieras.
 	- Recomendación: priorizar control sobre total de otros prestamos, ingresos y salario.
@@ -55,18 +53,16 @@ Resumen ejecutivo de data drift:
 ![Variables criticas de drift](fig_02_variables_criticas.png)
 
 3. Evidencia de deriva gradual (sin ruptura).
-	- Tipo: comparacion de distribuciones referencia vs actual para una variable critica (ejemplo: salario).
 	- Cambio gradual en el perfil financiero observado.
 	- Se aprecia desplazamiento progresivo, no quiebre de poblacion.
 	- Recomendación: el principal riesgo es acumulativo en el tiempo.
 
 ![Deriva gradual en salario](fig_03_deriva_gradual_salario.png)
 
-4. Impacto de decision por umbral operativo.
-	- Tipo: comparativo 0.5 vs umbral optimo en recall de riesgo y costo esperado.
+4. Impacto de decisión por umbral operativo.
 	- Ajustar el umbral reduce costo de error en origen.
 	- El umbral optimizado mejora captura de casos riesgosos.
-	- Recomendación: la mejora no es solo estadistica; impacta decision de negocio.
+	- Recomendación: la mejora no es solo estadística; impacta decisión de negocio.
 
 ![Impacto del umbral operativo](fig_04_impacto_umbral.png)
 
@@ -77,7 +73,7 @@ El flujo se ejecuta como una sola unidad operativa:
 1. Carga y validacion de datos.
 2. Analisis exploratorio y definicion de reglas de calidad.
 3. Feature engineering reproducible.
-4. Entrenamiento y evaluacion con auditoria.
+4. Entrenamiento y evaluacion con auditoría.
 5. Monitoreo continuo de drift y alertas.
 6. Visualizacion ejecutiva para seguimiento de estabilidad.
 
@@ -90,7 +86,7 @@ El flujo se ejecuta como una sola unidad operativa:
 - API de inferencia por lotes: src/model_deploy.py
 - Monitoreo de drift: src/model_monitoring.py
 - Dashboard de monitoreo: src/streamlit_monitoring_app.py
-- Auditoria de entrenamiento: src/model_training_evaluation_audit.json
+- Auditoría de entrenamiento: src/model_training_evaluation_audit.json
 - Bundle de despliegue generado localmente: model_artifacts/credit_risk_model_bundle.joblib
 
 ## Ejecucion tecnica (resumen)
@@ -121,13 +117,13 @@ python -m streamlit run src/streamlit_monitoring_app.py
 ## Despliegue del modelo
 
 El entrenamiento exporta un bundle serializado en `model_artifacts/credit_risk_model_bundle.joblib`.
-Ese artefacto se usa para levantar la API de prediccion por lotes con FastAPI.
-La imagen Docker usa solo dependencias de runtime definidas en `requirements-deploy.txt`.
+Ese artefacto se usa para levantar la API de predicción por lotes con FastAPI.
+La imágen Docker usa solo dependencias de runtime definidas en `requirements-deploy.txt`.
 
 Flujo recomendado:
 
 1. Ejecutar entrenamiento para generar el bundle.
-2. Construir la imagen Docker.
+2. Construir la imágen Docker.
 3. Levantar el contenedor y consumir `/predict` o `/predict/csv`.
 
 Ejemplo:
@@ -138,9 +134,9 @@ docker build -t credit-risk-api .
 docker run --rm -p 8000:8000 credit-risk-api
 ```
 
-Uso directo de la imagen Docker:
+Uso directo de la imágen Docker:
 
-1. Construye la imagen:
+1. Construye la imágen:
 
 ```bash
 docker build -t credit-risk-api:slim .
@@ -169,7 +165,7 @@ curl -X POST http://localhost:8000/predict \
 Endpoints principales:
 
 - `GET /health` para verificar disponibilidad del bundle.
-- `GET /metadata` para revisar configuracion del artefacto.
+- `GET /metadata` para revisar configuración del artefacto.
 - `POST /predict` para lotes en JSON.
 - `POST /predict/csv` para lotes desde archivo CSV.
 
@@ -178,13 +174,13 @@ Endpoints principales:
 Se agrego pipeline de CI con Quality Gate:
 
 - Workflow: `.github/workflows/ci-sonar.yml`
-- Configuracion Sonar: `sonar-project.properties`
+- configuración Sonar: `sonar-project.properties`
 
-Requiere una configuracion inicial minima en GitHub y Sonar: definir `sonar.projectKey` / `sonar.projectName` y cargar los secrets `SONAR_HOST_URL` y `SONAR_TOKEN` sin exponer sus valores.
+Requiere una configuración inicial minima en GitHub y Sonar: definir `sonar.projectKey` / `sonar.projectName` y cargar los secrets `SONAR_HOST_URL` y `SONAR_TOKEN` sin exponer sus valores.
 
-Qué válida el workflow:
+Qué valida el workflow:
 
-- Compilacion de scripts Python clave.
+- Compilación de scripts Python clave.
 - Build Docker smoke test de la API.
 - Analisis estatico con Sonar.
 - Validacion de Quality Gate (pass/fail del pipeline).
