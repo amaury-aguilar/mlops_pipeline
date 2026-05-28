@@ -1,0 +1,47 @@
+name: CI + Sonar
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  quality-and-sonar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-deploy.txt
+
+      - name: Syntax check
+        run: |
+          python -m py_compile src/ft_engineering.py src/model_training_evaluation.py src/model_deploy.py src/model_monitoring.py
+
+      - name: Docker build smoke test
+        run: |
+          docker build -t credit-risk-api:ci .
+
+      - name: Sonar scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Sonar Quality Gate
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        timeout-minutes: 10
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
