@@ -1,0 +1,14 @@
+.git
+.venv
+mlops-venv
+__pycache__
+.ipynb_checkpoints
+.DS_Store
+logs.log
+monitoring_batches
+src/monitoring_outputs
+features_engineered.csv
+fig_01_estabilidad_global.png
+fig_02_variables_criticas.png
+fig_03_deriva_gradual_salario.png
+fig_04_impacto_umbral.png

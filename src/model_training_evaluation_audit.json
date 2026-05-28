@@ -63,12 +63,16 @@
     "cost_strategy": "derived_from_class_balance"
   },
   "pycaret_selection": {
-    "selected_origin": "best_single_model_pycaret",
-    "selected_auc_pycaret": 0.6987,
-    "base_auc_pycaret": 0.6987,
-    "blend_auc_pycaret": 0.0,
+    "selected_origin": "best_single_model_sklearn_fallback",
+    "selected_auc_pycaret": null,
+    "base_auc_pycaret": null,
+    "blend_auc_pycaret": null,
     "blending_used": true,
-    "folds": 10
+    "folds": 10,
+    "fallback_used": true,
+    "fallback_reason": "PyCaret no disponible en Python 3.9.6: No module named 'pycaret'",
+    "pycaret_recommendation": "PyCaret 3.3.2 suele funcionar en Python 3.10/3.11. Si estas en Python 3.13, crea un venv Python 3.11 para habilitar PyCaret.",
+    "selected_auc_fallback": 0.6896
   },
   "best_sklearn_params": {
     "model__subsample": 0.7,
@@ -126,116 +130,61 @@
   },
   "leaderboard_top_rows": [
     {
-      "Model": "Gradient Boosting Classifier",
-      "Accuracy": 0.9502,
-      "AUC": 0.6987,
-      "Recall": 0.0248,
-      "Prec.": 0.2012,
-      "F1": 0.0428,
-      "Kappa": 0.0353,
-      "MCC": 0.0577,
-      "TT (Sec)": 0.226
+      "Model": "gb",
+      "AUC": 0.6896,
+      "AUC_std": 0.0535
     },
     {
-      "Model": "Ridge Classifier",
-      "Accuracy": 0.9524,
-      "AUC": 0.6828,
-      "Recall": 0.0,
-      "Prec.": 0.0,
-      "F1": 0.0,
-      "Kappa": -0.0003,
-      "MCC": -0.0009,
-      "TT (Sec)": 0.009
+      "Model": "rf",
+      "AUC": 0.6485,
+      "AUC_std": 0.0447
     },
     {
-      "Model": "Linear Discriminant Analysis",
-      "Accuracy": 0.9516,
-      "AUC": 0.682,
-      "Recall": 0.0213,
-      "Prec.": 0.3,
-      "F1": 0.0394,
-      "Kappa": 0.034,
-      "MCC": 0.0681,
-      "TT (Sec)": 0.018
+      "Model": "xgb",
+      "AUC": 0.6437,
+      "AUC_std": 0.0545
     },
     {
-      "Model": "Ada Boost Classifier",
-      "Accuracy": 0.9519,
-      "AUC": 0.6624,
-      "Recall": 0.007,
-      "Prec.": 0.2,
-      "F1": 0.0136,
-      "Kappa": 0.0111,
-      "MCC": 0.0322,
-      "TT (Sec)": 0.043
+      "Model": "logreg",
+      "AUC": 0.6158,
+      "AUC_std": 0.0712
     },
     {
-      "Model": "Extra Trees Classifier",
-      "Accuracy": 0.952,
-      "AUC": 0.6614,
-      "Recall": 0.0034,
-      "Prec.": 0.05,
-      "F1": 0.0065,
-      "Kappa": 0.0049,
-      "MCC": 0.0095,
-      "TT (Sec)": 0.057
-    },
-    {
-      "Model": "Light Gradient Boosting Machine",
-      "Accuracy": 0.9517,
-      "AUC": 0.6569,
-      "Recall": 0.0176,
-      "Prec.": 0.25,
-      "F1": 0.0325,
-      "Kappa": 0.0281,
-      "MCC": 0.0572,
-      "TT (Sec)": 0.523
-    },
-    {
-      "Model": "Random Forest Classifier",
-      "Accuracy": 0.9525,
-      "AUC": 0.649,
-      "Recall": 0.0036,
-      "Prec.": 0.1,
-      "F1": 0.0069,
-      "Kappa": 0.0063,
-      "MCC": 0.0176,
-      "TT (Sec)": 0.099
-    },
-    {
-      "Model": "Extreme Gradient Boosting",
-      "Accuracy": 0.9512,
-      "AUC": 0.6358,
-      "Recall": 0.0245,
-      "Prec.": 0.2667,
-      "F1": 0.0435,
-      "Kappa": 0.0374,
-      "MCC": 0.0672,
-      "TT (Sec)": 0.03
-    },
-    {
-      "Model": "Logistic Regression",
-      "Accuracy": 0.9525,
-      "AUC": 0.5938,
-      "Recall": 0.0,
-      "Prec.": 0.0,
-      "F1": 0.0,
-      "Kappa": 0.0,
-      "MCC": 0.0,
-      "TT (Sec)": 0.428
-    },
-    {
-      "Model": "Naive Bayes",
-      "Accuracy": 0.8598,
-      "AUC": 0.5596,
-      "Recall": 0.0931,
-      "Prec.": 0.0046,
-      "F1": 0.0089,
-      "Kappa": -0.0096,
-      "MCC": -0.0187,
-      "TT (Sec)": 0.01
+      "Model": "blend_top3",
+      "AUC": 0.6768,
+      "AUC_std": 0.0579
     }
   ],
   "selected_model_class_pycaret": "GradientBoostingClassifier",
-  "selected_model_class_sklearn": "GradientBoostingClassifier"
+  "selected_model_class_sklearn": "GradientBoostingClassifier",
+  "deployment_feature_columns": [
+    "tipo_credito",
+    "capital_prestado",
+    "plazo_meses",
+    "edad_cliente",
+    "tipo_laboral",
+    "salario_cliente",
+    "total_otros_prestamos",
+    "cuota_pactada",
+    "puntaje_datacredito",
+    "cant_creditosvigentes",
+    "huella_consulta",
+    "creditos_sectorFinanciero",
+    "creditos_sectorCooperativo",
+    "creditos_sectorReal",
+    "promedio_ingresos_datacredito",
+    "tendencia_ingresos",
+    "anio_prestamo",
+    "mes_prestamo",
+    "dia_semana_prestamo",
+    "ratio_deuda_ingreso",
+    "ratio_cuota_ingreso"
+  ],
+  "deployment_dropped_leakage_columns": [
+    "puntaje",
+    "saldo_mora",
+    "saldo_mora_codeudor",
+    "saldo_principal",
+    "saldo_total"
+  ]
 }
