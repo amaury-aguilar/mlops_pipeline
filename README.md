@@ -1,33 +1,33 @@
-# Prediccion de Comportamiento de Credito
+# Predicción de Comportamiento de Credito
 
 Este proyecto construye y opera un modelo de riesgo crediticio para anticipar el comportamiento de pago de nuevos clientes a partir de historicos de credito.
 
 ## Caso de negocio
 
-En una entidad financiera, decidir bien en originacion reduce perdidas por incumplimiento y mejora la asignacion de capital. El objetivo de esta solucion es apoyar decisiones de riesgo con evidencia cuantitativa, trazable y monitoreable en el tiempo.
+En una entidad financiera, decidir bien en principio reduce perdidas por incumplimiento y mejora la asignacion de capital. El objetivo de esta solución es apoyar decisiones de riesgo con evidencia cuantitativa, trazable y monitoreable en el tiempo.
 
 Objetivos de negocio:
 - Estimar riesgo de no pago para nuevos solicitantes.
-- Mejorar decisiones de aprobacion y priorizacion de revisiones.
+- Mejorar decisiones de aprobación y priorización de revisiones.
 - Reducir degradacion silenciosa del modelo mediante monitoreo de drift.
 
-## Objetivos analiticos
+## Objetivos analíticos
 
-- Preparar y transformar datos de credito con reglas reproducibles.
-- Entrenar y evaluar modelos supervisados con metricas adecuadas para desbalance.
+- Preparar y transformar datos de crédito con reglas reproducibles.
+- Entrenar y evaluar modelos supervisados con métricas adecuadas para desbalance.
 - Optimizar umbral de decision con enfoque de costo.
-- Monitorear cambios de poblacion que puedan afectar desempeno.
+- Monitorear cambios de población que puedan afectar desempeño.
 
 ## Principales hallazgos
 
-- Se detecto y corrigio leakage en variables que producian metricas artificialmente perfectas.
-- Al definir la clase positiva como evento de riesgo (no pago), las metricas se volvieron consistentes con el problema de negocio.
-- El umbral por defecto 0.5 no era optimo para riesgo; la optimizacion por costo mejoro recuperacion de eventos riesgosos.
+- Se detecto y corrigio leakage en variables que producian métricas artificialmente perfectas.
+- Al definir la clase positiva como evento de riesgo (no pago), las métricas se volvieron consistentes con el problema de negocio.
+- El umbral por defecto 0.5 no era optimo para riesgo; la optimización por costo mejoro recuperación de eventos riesgosos.
 - El monitoreo de drift se traduce en alertas tempranas para evitar deterioro silencioso del modelo.
 
 Resumen ejecutivo de data drift:
-- Hallazgo: estado global ok y drift agregado bajo en las corridas iniciales.
-	Impacto: no se observa deterioro inmediato que comprometa decisiones de originacion.
+- Hallazgo: estado global aceptable (ok) y drift agregado bajo en las corridas iniciales.
+	Impacto: no se observa deterioro inmediato que comprometa decisiones de origen.
 	Accion: mantener operacion normal con monitoreo periodico.
 - Hallazgo: no hay concentracion critica de variables en severidad alta.
 	Impacto: estabilidad poblacional suficiente en la ventana evaluada.
@@ -36,43 +36,37 @@ Resumen ejecutivo de data drift:
 	Impacto: principal riesgo de mediano plazo por deriva gradual, no por ruptura abrupta.
 	Accion: priorizar estas variables en el tablero y activar recalibracion/retraining si la severidad aumenta de forma sostenida.
 
-## Graficas ejecutivas recomendadas
-
-Para comunicar hallazgos a nivel directivo, se recomienda mostrar solo 4 graficas que expliquen por si mismas el riesgo, el impacto y la accion.
+## Graficas
 
 1. Estabilidad global del modelo en el tiempo.
-	- Tipo: serie temporal del drift agregado con bandas ok/warning/critical.
-	- Titulo: Riesgo de deriva global: estable, con vigilancia activa.
-	- Subtitulo: Estado actual OK; no hay evidencia de deterioro abrupto.
-	- Mensaje clave: la situacion es estable hoy, pero debe vigilarse la tendencia.
-	- Grafica:
+	- Serie temporal del drift agregado con bandas ok/warning/critical.
+	- Riesgo de deriva global: estable, con vigilancia activa.
+	- Estado actual OK; no hay evidencia de deterioro abrupto.
+	- Recomendación: la situacion es estable hoy, pero debe vigilarse la tendencia.
 
 ![Riesgo de deriva global](fig_01_estabilidad_global.png)
 
 2. Variables que explican el riesgo de deriva.
 	- Tipo: barras horizontales Top 5 variables con mayor severidad de drift.
-	- Titulo: La deriva se concentra en pocas variables criticas.
-	- Subtitulo: El riesgo no es generalizado; se focaliza en variables financieras.
-	- Mensaje clave: priorizar control sobre total de otros prestamos, ingresos y salario.
-	- Grafica:
+	- La deriva se concentra en pocas variables criticas.
+	- El riesgo no es generalizado; se focaliza en variables financieras.
+	- Recomendación: priorizar control sobre total de otros prestamos, ingresos y salario.
 
 ![Variables criticas de drift](fig_02_variables_criticas.png)
 
 3. Evidencia de deriva gradual (sin ruptura).
 	- Tipo: comparacion de distribuciones referencia vs actual para una variable critica (ejemplo: salario).
-	- Titulo: Cambio gradual en el perfil financiero observado.
-	- Subtitulo: Se aprecia desplazamiento progresivo, no quiebre de poblacion.
-	- Mensaje clave: el principal riesgo es acumulativo en el tiempo.
-	- Grafica:
+	- Cambio gradual en el perfil financiero observado.
+	- Se aprecia desplazamiento progresivo, no quiebre de poblacion.
+	- Recomendación: el principal riesgo es acumulativo en el tiempo.
 
 ![Deriva gradual en salario](fig_03_deriva_gradual_salario.png)
 
 4. Impacto de decision por umbral operativo.
 	- Tipo: comparativo 0.5 vs umbral optimo en recall de riesgo y costo esperado.
-	- Titulo: Ajustar el umbral reduce costo de error en originacion.
-	- Subtitulo: El umbral optimizado mejora captura de casos riesgosos.
-	- Mensaje clave: la mejora no es solo estadistica; impacta decision de negocio.
-	- Grafica:
+	- Ajustar el umbral reduce costo de error en origen.
+	- El umbral optimizado mejora captura de casos riesgosos.
+	- Recomendación: la mejora no es solo estadistica; impacta decision de negocio.
 
 ![Impacto del umbral operativo](fig_04_impacto_umbral.png)
 
@@ -188,7 +182,7 @@ Se agrego pipeline de CI con Quality Gate:
 
 Requiere una configuracion inicial minima en GitHub y Sonar: definir `sonar.projectKey` / `sonar.projectName` y cargar los secrets `SONAR_HOST_URL` y `SONAR_TOKEN` sin exponer sus valores.
 
-Que valida el workflow:
+Qué válida el workflow:
 
 - Compilacion de scripts Python clave.
 - Build Docker smoke test de la API.
