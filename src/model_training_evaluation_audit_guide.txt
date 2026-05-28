@@ -1,0 +1,86 @@
+Guia de lectura de model_training_evaluation_audit.json
+=====================================================
+
+1. Que es este archivo
+Este archivo JSON guarda el resumen estructurado de una corrida de entrenamiento y evaluacion.
+No contiene el modelo serializado; contiene el reporte de resultados, configuracion clave y trazabilidad.
+
+2. Campos principales
+- n_total:
+  Numero total de registros usados para modelamiento despues de filtrar filas sin target.
+
+- n_train:
+  Numero de registros usados en entrenamiento.
+
+- n_test:
+  Numero de registros reservados para holdout test.
+
+- cv_folds:
+  Numero de folds usados en validacion cruzada.
+
+- pycaret_selection:
+  Resume la etapa inicial de seleccion de candidatos.
+  Campos importantes:
+  - selected_origin: indica si el candidato vino del mejor modelo individual o de blending.
+  - selected_auc_pycaret: AUC del candidato si PyCaret estuvo disponible.
+  - fallback_used: indica si se uso fallback con sklearn.
+  - fallback_reason: explica por que PyCaret no se pudo usar.
+  - pycaret_recommendation: sugerencia de version de Python para habilitar PyCaret.
+
+- best_sklearn_params:
+  Mejores hiperparametros encontrados por GridSearchCV o RandomizedSearchCV.
+
+- best_sklearn_score_cv_auc:
+  Mejor AUC promedio encontrado durante la busqueda de hiperparametros.
+
+- cv_summary_mean_std:
+  Resume el rendimiento en validacion cruzada del mejor pipeline final.
+  Cada metrica tiene media (_mean) y desviacion estandar (_std).
+  Campos:
+  - roc_auc_mean / roc_auc_std
+  - f1_mean / f1_std
+  - precision_mean / precision_std
+  - recall_mean / recall_std
+  - accuracy_mean / accuracy_std
+
+- holdout_metrics:
+  Metricas finales medidas solo una vez sobre el conjunto de test holdout.
+  Este bloque es el que mejor aproxima el rendimiento fuera de muestra.
+
+- leaderboard_top_rows:
+  Ranking resumido de modelos evaluados en la etapa inicial.
+  Cada fila contiene:
+  - Model: nombre corto del modelo.
+  - AUC: AUC promedio en validacion cruzada.
+  - AUC_std: desviacion estandar del AUC.
+
+- selected_model_class_pycaret:
+  Clase del modelo seleccionado en la etapa inicial.
+  Si hubo fallback, representa el candidato equivalente en sklearn.
+
+- selected_model_class_sklearn:
+  Clase del modelo final optimizado con sklearn.
+
+3. Como interpretarlo rapidamente
+- Primero revisa holdout_metrics.
+- Luego compara con cv_summary_mean_std para verificar estabilidad.
+- Despues revisa best_sklearn_params para saber que configuracion gano.
+- Finalmente mira leaderboard_top_rows para entender que modelos compitieron.
+
+4. Senales de alerta
+- Si todas las metricas son 1.0, revisa leakage de negocio o variables post-evento.
+- Si la desviacion estandar es alta, el modelo puede ser inestable.
+- Si holdout_metrics cae mucho frente a cv_summary_mean_std, puede haber sobreajuste.
+
+5. Ejemplo de lectura
+Si ves:
+- roc_auc_mean = 0.84
+- roc_auc_std = 0.03
+- holdout roc_auc = 0.82
+Entonces el modelo tiene rendimiento razonablemente estable.
+
+Si ves:
+- roc_auc_mean = 0.99
+- roc_auc_std = 0.00
+- holdout roc_auc = 1.00
+Entonces debes sospechar fuga de informacion o una variable demasiado deterministica.
