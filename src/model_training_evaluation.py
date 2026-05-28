@@ -21,12 +21,14 @@ from __future__ import annotations
 
 # Importamos librerias base para rutas y serializacion opcional.
 from pathlib import Path
+from datetime import datetime, timezone
 import json
 import sys
 
 # Importamos librerias numericas y tabulares.
 import numpy as np
 import pandas as pd
+import joblib
 
 # Importamos utilidades de sklearn para modelamiento, validacion y metricas.
 from sklearn.base import clone
@@ -247,6 +249,39 @@ def round_nested_floats(data: object, digits: int = SUMMARY_ROUND_DIGITS) -> obj
     if isinstance(data, (float, np.floating)):
         return round(float(data), digits)
     return data
+
+
+# Exporta el mejor pipeline entrenado como bundle serializado para despliegue.
+def export_model_bundle(
+    best_pipeline: Pipeline,
+    summary: dict,
+    output_path: Path,
+) -> dict:
+    # Recuperamos configuracion de umbral y metadatos utiles para inferencia.
+    holdout_metrics = summary.get("holdout_metrics", {})
+    threshold_info = holdout_metrics.get("threshold_optimization", {})
+
+    # Armamos un bundle unico con pipeline, threshold y trazabilidad minima.
+    bundle = {
+        "artifact_type": "credit_risk_model_bundle",
+        "artifact_version": 1,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "target_column": TARGET_COL,
+        "positive_class_for_metrics": "risk_event",
+        "decision_threshold": float(threshold_info.get("selected_threshold", 0.5)),
+        "expected_cost_per_row": float(threshold_info.get("expected_cost_per_row", np.nan)),
+        "selected_model_class": best_pipeline.named_steps["model"].__class__.__name__,
+        "feature_columns": summary.get("deployment_feature_columns", []),
+        "dropped_leakage_columns": summary.get("deployment_dropped_leakage_columns", []),
+        "target_definition": summary.get("target_definition", {}),
+        "pipeline": best_pipeline,
+    }
+
+    # Escribimos el bundle en disco para que pueda ser copiado al contenedor.
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(bundle, output_path)
+
+    return bundle
 
 
 # Funcion para construir listas de columnas presentes en la muestra de entrenamiento.
@@ -890,6 +925,7 @@ def run_training_and_evaluation(
     test_size: float = 0.20,
     risk_class_value: int | None = None,
     save_audit_json_path: Path | None = None,
+    save_model_artifact_path: Path | None = None,
 ) -> dict:
     # Cargamos y preparamos dataframe con features sin transformar.
     X, y_original = load_feature_frame(input_path)
@@ -975,6 +1011,8 @@ def run_training_and_evaluation(
         "leaderboard_top_rows": leaderboard_df.head(10).to_dict(orient="records"),
         "selected_model_class_pycaret": pycaret_selected_model.__class__.__name__,
         "selected_model_class_sklearn": best_pipeline.named_steps["model"].__class__.__name__,
+        "deployment_feature_columns": list(X_train.columns),
+        "deployment_dropped_leakage_columns": leakage_report.get("dropped_columns", []),
     }
 
     # Guardamos auditoria si se solicito ruta de salida.
@@ -985,6 +1023,19 @@ def run_training_and_evaluation(
         # Escribimos JSON legible para auditoria y trazabilidad.
         with open(save_audit_json_path, "w", encoding="utf-8") as f:
             json.dump(round_nested_floats(result), f, ensure_ascii=False, indent=2)
+
+    # Guardamos el pipeline completo si se solicito un artefacto de despliegue.
+    if save_model_artifact_path is not None:
+        export_model_bundle(
+            best_pipeline=best_pipeline,
+            summary=result,
+            output_path=save_model_artifact_path,
+        )
+        result["deployment_artifact_path"] = str(save_model_artifact_path)
+        result["deployment_artifacts"] = {
+            "model_bundle_path": str(save_model_artifact_path),
+            "model_bundle_created": True,
+        }
 
     # Devolvemos resumen completo.
     return result
@@ -1001,12 +1052,16 @@ if __name__ == "__main__":
     # Definimos ruta opcional de auditoria en JSON.
     audit_json = project_root / "src" / "model_training_evaluation_audit.json"
 
+    # Definimos ruta del bundle serializado para despliegue.
+    model_artifact = project_root / "model_artifacts" / "credit_risk_model_bundle.joblib"
+
     # Ejecutamos pipeline completo de entrenamiento y evaluacion.
     summary = run_training_and_evaluation(
         input_path=input_csv,
         test_size=0.20,
         risk_class_value=None,
         save_audit_json_path=audit_json,
+        save_model_artifact_path=model_artifact,
     )
 
     # Imprimimos resumen final de forma compacta.

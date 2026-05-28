@@ -93,9 +93,11 @@ El flujo se ejecuta como una sola unidad operativa:
 - EDA y reglas de calidad: src/Comprension_eda.ipynb
 - Feature engineering: src/ft_engineering.py
 - Entrenamiento y evaluacion: src/model_training_evaluation.py
+- API de inferencia por lotes: src/model_deploy.py
 - Monitoreo de drift: src/model_monitoring.py
 - Dashboard de monitoreo: src/streamlit_monitoring_app.py
 - Auditoria de entrenamiento: src/model_training_evaluation_audit.json
+- Bundle de despliegue generado localmente: model_artifacts/credit_risk_model_bundle.joblib
 
 ## Ejecucion tecnica (resumen)
 
@@ -121,6 +123,61 @@ python src/model_training_evaluation.py
 python src/model_monitoring.py --batch-runs 5 --reset-history
 python -m streamlit run src/streamlit_monitoring_app.py
 ```
+
+## Despliegue del modelo
+
+El entrenamiento exporta un bundle serializado en `model_artifacts/credit_risk_model_bundle.joblib`.
+Ese artefacto se usa para levantar la API de prediccion por lotes con FastAPI.
+La imagen Docker usa solo dependencias de runtime definidas en `requirements-deploy.txt`.
+
+Flujo recomendado:
+
+1. Ejecutar entrenamiento para generar el bundle.
+2. Construir la imagen Docker.
+3. Levantar el contenedor y consumir `/predict` o `/predict/csv`.
+
+Ejemplo:
+
+```bash
+python src/model_training_evaluation.py
+docker build -t credit-risk-api .
+docker run --rm -p 8000:8000 credit-risk-api
+```
+
+Uso directo de la imagen Docker:
+
+1. Construye la imagen:
+
+```bash
+docker build -t credit-risk-api:slim .
+```
+
+2. Levanta el servicio:
+
+```bash
+docker run --rm -p 8000:8000 credit-risk-api:slim
+```
+
+3. Verifica que está arriba:
+
+```bash
+curl http://localhost:8000/health
+```
+
+4. Envía predicciones por lote en JSON:
+
+```bash
+curl -X POST http://localhost:8000/predict \
+	-H "Content-Type: application/json" \
+	-d '{"records":[{"tipo_credito":"4","capital_prestado":1000000,"plazo_meses":12,"edad_cliente":35,"tipo_laboral":"Empleado","salario_cliente":2500000,"total_otros_prestamos":300000,"cuota_pactada":120000,"puntaje_datacredito":780,"cant_creditosvigentes":2,"huella_consulta":4,"creditos_sectorFinanciero":1,"creditos_sectorCooperativo":0,"creditos_sectorReal":1,"promedio_ingresos_datacredito":2400000,"tendencia_ingresos":"Creciente","anio_prestamo":2026,"mes_prestamo":5,"dia_semana_prestamo":2,"ratio_deuda_ingreso":0.12,"ratio_cuota_ingreso":0.048}]}'
+```
+
+Endpoints principales:
+
+- `GET /health` para verificar disponibilidad del bundle.
+- `GET /metadata` para revisar configuracion del artefacto.
+- `POST /predict` para lotes en JSON.
+- `POST /predict/csv` para lotes desde archivo CSV.
 
 ## Interpretacion de resultados
 

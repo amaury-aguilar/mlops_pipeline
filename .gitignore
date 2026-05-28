@@ -30,6 +30,7 @@ src/executive_charts.ipynb
 models/*.pkl
 models/*.joblib
 models/*.h5
+model_artifacts/
 
 # Data
 data/raw/
