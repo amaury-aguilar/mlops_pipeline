@@ -2,73 +2,240 @@
   "n_total": 10763,
   "n_train": 8610,
   "n_test": 2153,
+  "target_definition": {
+    "target_column": "Pago_atiempo",
+    "positive_class_for_metrics": "risk_event",
+    "mapping": {
+      "risk_event": 1,
+      "non_risk_event": 0,
+      "risk_event_original_value": 0
+    },
+    "strategy": "minority_class_as_risk",
+    "risk_class_original_value": 0,
+    "class_distribution_original": {
+      "1": 10252,
+      "0": 511
+    }
+  },
+  "leakage_controls": {
+    "single_feature_auc_threshold": 0.995,
+    "known_risk_columns_configured": [
+      "puntaje",
+      "saldo_mora",
+      "saldo_mora_codeudor",
+      "saldo_total",
+      "saldo_principal"
+    ],
+    "dropped_columns": [
+      "puntaje",
+      "saldo_mora",
+      "saldo_mora_codeudor",
+      "saldo_principal",
+      "saldo_total"
+    ],
+    "dropped_columns_reasons": {
+      "puntaje": [
+        "known_business_leakage_risk",
+        "single_feature_auc_abs>=0.995"
+      ],
+      "saldo_mora": [
+        "known_business_leakage_risk"
+      ],
+      "saldo_mora_codeudor": [
+        "known_business_leakage_risk"
+      ],
+      "saldo_total": [
+        "known_business_leakage_risk"
+      ],
+      "saldo_principal": [
+        "known_business_leakage_risk"
+      ]
+    },
+    "n_features_before": 26,
+    "n_features_after": 21
+  },
   "cv_folds": 10,
+  "threshold_cost_config": {
+    "risk_rate_train": 0.0475,
+    "non_risk_rate_train": 0.9525,
+    "fp_cost": 1.0,
+    "fn_cost": 20.0513,
+    "cost_strategy": "derived_from_class_balance"
+  },
   "pycaret_selection": {
-    "selected_origin": "best_single_model_sklearn_fallback",
-    "selected_auc_pycaret": null,
-    "base_auc_pycaret": null,
-    "blend_auc_pycaret": null,
+    "selected_origin": "best_single_model_pycaret",
+    "selected_auc_pycaret": 0.6987,
+    "base_auc_pycaret": 0.6987,
+    "blend_auc_pycaret": 0.0,
     "blending_used": true,
-    "folds": 10,
-    "fallback_used": true,
-    "fallback_reason": "PyCaret no disponible: No module named 'pycaret'",
-    "selected_auc_fallback": 1.0
+    "folds": 10
   },
   "best_sklearn_params": {
-    "model__n_estimators": 150,
-    "model__min_samples_split": 5,
-    "model__min_samples_leaf": 1,
-    "model__max_features": "log2",
-    "model__max_depth": 12
+    "model__subsample": 0.7,
+    "model__n_estimators": 350,
+    "model__max_depth": 3,
+    "model__learning_rate": 0.03
   },
-  "best_sklearn_score_cv_auc": 1.0,
+  "best_sklearn_score_cv_auc": 0.7008,
   "cv_summary_mean_std": {
     "folds": 10,
-    "roc_auc_mean": 1.0,
-    "roc_auc_std": 0.0,
-    "f1_mean": 1.0,
-    "f1_std": 0.0,
-    "precision_mean": 1.0,
-    "precision_std": 0.0,
-    "recall_mean": 1.0,
-    "recall_std": 0.0,
-    "accuracy_mean": 1.0,
-    "accuracy_std": 0.0
+    "roc_auc_mean": 0.7008,
+    "roc_auc_std": 0.0559,
+    "pr_auc_mean": 0.158,
+    "pr_auc_std": 0.0569,
+    "f1_mean": 0.0546,
+    "f1_std": 0.0548,
+    "precision_mean": 0.5033,
+    "precision_std": 0.4276,
+    "recall_mean": 0.0293,
+    "recall_std": 0.03,
+    "accuracy_mean": 0.9528,
+    "accuracy_std": 0.0019,
+    "balanced_accuracy_mean": 0.5141,
+    "balanced_accuracy_std": 0.0151
   },
   "holdout_metrics": {
-    "roc_auc": 1.0,
-    "f1": 1.0,
-    "precision": 1.0,
-    "recall": 1.0,
-    "accuracy": 1.0
+    "roc_auc": 0.7171,
+    "pr_auc": 0.1501,
+    "threshold_optimization": {
+      "selected_threshold": 0.05,
+      "expected_cost_per_row": 0.6266,
+      "fp_cost": 1.0,
+      "fn_cost": 20.0513,
+      "confusion_counts": {
+        "tp": 60,
+        "tn": 1544,
+        "fp": 507,
+        "fn": 42
+      }
+    },
+    "metrics_at_selected_threshold": {
+      "f1": 0.1794,
+      "precision": 0.1058,
+      "recall": 0.5882,
+      "accuracy": 0.745,
+      "balanced_accuracy": 0.6705
+    },
+    "metrics_at_threshold_0_5": {
+      "f1": 0.0374,
+      "precision": 0.4,
+      "recall": 0.0196,
+      "accuracy": 0.9522,
+      "balanced_accuracy": 0.5091
+    }
   },
   "leaderboard_top_rows": [
     {
-      "Model": "rf",
-      "AUC": 1.0,
-      "AUC_std": 3.700743415417188e-17
+      "Model": "Gradient Boosting Classifier",
+      "Accuracy": 0.9502,
+      "AUC": 0.6987,
+      "Recall": 0.0248,
+      "Prec.": 0.2012,
+      "F1": 0.0428,
+      "Kappa": 0.0353,
+      "MCC": 0.0577,
+      "TT (Sec)": 0.226
     },
     {
-      "Model": "gb",
-      "AUC": 1.0,
-      "AUC_std": 0.0
+      "Model": "Ridge Classifier",
+      "Accuracy": 0.9524,
+      "AUC": 0.6828,
+      "Recall": 0.0,
+      "Prec.": 0.0,
+      "F1": 0.0,
+      "Kappa": -0.0003,
+      "MCC": -0.0009,
+      "TT (Sec)": 0.009
     },
     {
-      "Model": "xgb",
-      "AUC": 0.9999390986601705,
-      "AUC_std": 0.00019258694641708027
+      "Model": "Linear Discriminant Analysis",
+      "Accuracy": 0.9516,
+      "AUC": 0.682,
+      "Recall": 0.0213,
+      "Prec.": 0.3,
+      "F1": 0.0394,
+      "Kappa": 0.034,
+      "MCC": 0.0681,
+      "TT (Sec)": 0.018
     },
     {
-      "Model": "logreg",
-      "AUC": 0.9804303887903856,
-      "AUC_std": 0.01240093922614111
+      "Model": "Ada Boost Classifier",
+      "Accuracy": 0.9519,
+      "AUC": 0.6624,
+      "Recall": 0.007,
+      "Prec.": 0.2,
+      "F1": 0.0136,
+      "Kappa": 0.0111,
+      "MCC": 0.0322,
+      "TT (Sec)": 0.043
     },
     {
-      "Model": "blend_top3",
-      "AUC": 1.0,
-      "AUC_std": 0.0
+      "Model": "Extra Trees Classifier",
+      "Accuracy": 0.952,
+      "AUC": 0.6614,
+      "Recall": 0.0034,
+      "Prec.": 0.05,
+      "F1": 0.0065,
+      "Kappa": 0.0049,
+      "MCC": 0.0095,
+      "TT (Sec)": 0.057
+    },
+    {
+      "Model": "Light Gradient Boosting Machine",
+      "Accuracy": 0.9517,
+      "AUC": 0.6569,
+      "Recall": 0.0176,
+      "Prec.": 0.25,
+      "F1": 0.0325,
+      "Kappa": 0.0281,
+      "MCC": 0.0572,
+      "TT (Sec)": 0.523
+    },
+    {
+      "Model": "Random Forest Classifier",
+      "Accuracy": 0.9525,
+      "AUC": 0.649,
+      "Recall": 0.0036,
+      "Prec.": 0.1,
+      "F1": 0.0069,
+      "Kappa": 0.0063,
+      "MCC": 0.0176,
+      "TT (Sec)": 0.099
+    },
+    {
+      "Model": "Extreme Gradient Boosting",
+      "Accuracy": 0.9512,
+      "AUC": 0.6358,
+      "Recall": 0.0245,
+      "Prec.": 0.2667,
+      "F1": 0.0435,
+      "Kappa": 0.0374,
+      "MCC": 0.0672,
+      "TT (Sec)": 0.03
+    },
+    {
+      "Model": "Logistic Regression",
+      "Accuracy": 0.9525,
+      "AUC": 0.5938,
+      "Recall": 0.0,
+      "Prec.": 0.0,
+      "F1": 0.0,
+      "Kappa": 0.0,
+      "MCC": 0.0,
+      "TT (Sec)": 0.428
+    },
+    {
+      "Model": "Naive Bayes",
+      "Accuracy": 0.8598,
+      "AUC": 0.5596,
+      "Recall": 0.0931,
+      "Prec.": 0.0046,
+      "F1": 0.0089,
+      "Kappa": -0.0096,
+      "MCC": -0.0187,
+      "TT (Sec)": 0.01
     }
   ],
-  "selected_model_class_pycaret": "RandomForestClassifier",
-  "selected_model_class_sklearn": "RandomForestClassifier"
+  "selected_model_class_pycaret": "GradientBoostingClassifier",
+  "selected_model_class_sklearn": "GradientBoostingClassifier"
 }

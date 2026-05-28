@@ -19,8 +19,12 @@ mlops_pipeline/
 ├── setup.sh
 ├── mlops-venv/
 └── src/
-		├── Cargar_datos.ipynb
-		└── Comprension_eda.ipynb
+	├── Cargar_datos.ipynb
+	├── Comprension_eda.ipynb
+	├── ft_engineering.py
+	├── model_training_evaluation.py
+	├── model_training_evaluation_audit.json
+	└── model_training_evaluation_audit_guide.txt
 ```
 
 ## Notebooks de la etapa
@@ -54,38 +58,97 @@ Notebook de analisis experimental y exploratorio de datos.
 
 ## Requisitos
 
-Se recomienda tener instalado al menos:
+La opcion mas estable y parsimoniosa para este proyecto es usar un unico entorno virtual `mlops-venv` con Python 3.11.x.
 
-- Python 3.13+
-- pandas
-- numpy
-- matplotlib
-- seaborn
-- jupyter
+- Python 3.11.x
+- manifiesto conda en `environment.yml`
+- dependencias fijadas en `requirements.txt`
 
-Las dependencias se gestionan desde `requirements.txt` y el entorno virtual del proyecto.
+Motivo:
+- `PyCaret 3.3.2` no es compatible de forma estable con Python 3.13.
+- Con Python 3.11 se mantiene compatibilidad entre `PyCaret`, `scikit-learn`, `xgboost`, notebooks y el resto del stack actual.
 
-## Ejecucion
+## Manifiesto del entorno
 
-1. Activar entorno virtual:
+`environment.yml` es el contrato declarativo del entorno conda del proyecto.
+
+- Define version de Python y herramientas base (`python=3.11`, `pip`).
+- Declara el origen de las dependencias de Python usando `pip` con `requirements.txt`.
+- Permite reconstruir el mismo entorno de forma consistente en otras maquinas o en CI.
+
+## Preparacion del entorno
+
+Si vas a reconstruir el entorno original compatible, ejecuta:
 
 ```bash
-source mlops-venv/bin/activate
+bash setup.sh
 ```
 
-2. Levantar Jupyter:
+Ese script reconstruye `mlops-venv` usando un flujo 100% conda, instala dependencias y registra el kernel de Jupyter.
+
+Si tu binario de conda no esta en `/Users/amaury/miniconda3/bin/conda`, ejecuta:
 
 ```bash
-jupyter notebook
+CONDA_BIN=/ruta/a/conda bash setup.sh
 ```
 
-3. Ejecutar notebooks en este orden:
+## Como probar los scripts
+
+Probar feature engineering:
+
+```bash
+"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" python src/ft_engineering.py
+```
+
+Ese comando:
+- carga `Base_de_datos.csv`
+- genera variables derivadas
+- aplica imputacion y codificacion
+- guarda `features_engineered.csv` en la raiz del proyecto
+
+Probar modelamiento y evaluacion:
+
+```bash
+"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" python src/model_training_evaluation.py
+```
+
+Ese comando:
+- selecciona candidatos iniciales con `PyCaret` si esta disponible
+- evalua mezcla de modelos
+- optimiza el candidato final con `scikit-learn`
+- guarda el resumen en `src/model_training_evaluation_audit.json`
+
+Para notebooks:
+
+```bash
+"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" jupyter notebook
+```
+
+Orden recomendado:
 
 1. `src/Cargar_datos.ipynb`
 2. `src/Comprension_eda.ipynb`
+3. `"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" python src/ft_engineering.py`
+4. `"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" python src/model_training_evaluation.py`
+
+## Como leer el archivo de auditoria
+
+`src/model_training_evaluation_audit.json` es el resumen estructurado de una corrida de entrenamiento.
+
+Contiene:
+- tamano total de la muestra, train y test
+- numero de folds usados en validacion cruzada
+- resultado de la seleccion inicial con `PyCaret` o fallback
+- mejores hiperparametros encontrados en `scikit-learn`
+- metricas CV con media y desviacion estandar
+- metricas finales en holdout test
+- ranking resumido de los mejores modelos evaluados
+
+Para una guia campo por campo, revisa `src/model_training_evaluation_audit_guide.txt`.
 
 ## Notas importantes
 
 - El CSV de este repositorio es una fuente de ejemplo no productiva.
 - En una arquitectura empresarial, la capa de ingestion y curacion de datos se resuelve antes de la fase de modelado.
 - Las reglas de validacion definidas en EDA deben migrarse a pruebas automatizadas de calidad en etapas siguientes.
+- Si aparecen metricas perfectas (`1.0` en todo), revisa posible leakage de negocio o variables con informacion post-evento.
