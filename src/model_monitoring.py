@@ -47,6 +47,9 @@ class MonitoringConfig:
     periodicity: str
     sample_fraction: float
     min_sample_size: int
+    batch_runs: int
+    batches_dir: Path
+    reset_history: bool
 
 
 def parse_args() -> MonitoringConfig:
@@ -88,6 +91,23 @@ def parse_args() -> MonitoringConfig:
         default=300,
         help="Tamano minimo de muestra total para monitoreo.",
     )
+    parser.add_argument(
+        "--batch-runs",
+        type=int,
+        default=1,
+        help="Cantidad de corridas batch (>=2 recomendado para tendencia temporal).",
+    )
+    parser.add_argument(
+        "--batches-dir",
+        type=Path,
+        default=Path("monitoring_batches"),
+        help="Directorio temporal donde se generan lotes para corridas batch.",
+    )
+    parser.add_argument(
+        "--reset-history",
+        action="store_true",
+        help="Reinicia el historico de monitoreo antes de correr.",
+    )
 
     args = parser.parse_args()
     return MonitoringConfig(
@@ -97,6 +117,9 @@ def parse_args() -> MonitoringConfig:
         periodicity=args.periodicity,
         sample_fraction=args.sample_fraction,
         min_sample_size=args.min_sample_size,
+        batch_runs=args.batch_runs,
+        batches_dir=args.batches_dir,
+        reset_history=args.reset_history,
     )
 
 
@@ -198,6 +221,34 @@ def split_reference_current(df_ref_full: pd.DataFrame, current_path: Path | None
         current = reference.sample(min(200, len(reference)), random_state=RANDOM_STATE)
 
     return reference.reset_index(drop=True), current.reset_index(drop=True)
+
+
+def create_batch_files(reference_csv: Path, batches_dir: Path, n_runs: int) -> list[Path]:
+    if n_runs < 1:
+        raise ValueError("batch_runs debe ser >= 1")
+
+    df = load_data(reference_csv)
+    batches_dir.mkdir(parents=True, exist_ok=True)
+
+    for old_file in batches_dir.glob("batch_*.csv"):
+        old_file.unlink()
+
+    if DATE_COL in df.columns:
+        tmp = df.copy()
+        tmp[DATE_COL] = pd.to_datetime(tmp[DATE_COL], dayfirst=True, errors="coerce")
+        tmp = tmp.sort_values(DATE_COL)
+        parts = np.array_split(tmp, n_runs)
+    else:
+        tmp = df.sample(frac=1.0, random_state=RANDOM_STATE).reset_index(drop=True)
+        parts = np.array_split(tmp, n_runs)
+
+    files: list[Path] = []
+    for idx, part in enumerate(parts, start=1):
+        fpath = batches_dir / f"batch_{idx:02d}.csv"
+        part.to_csv(fpath, index=False)
+        files.append(fpath)
+
+    return files
 
 
 def psi_from_counts(ref_counts: np.ndarray, cur_counts: np.ndarray) -> float:
@@ -447,6 +498,40 @@ def run_monitoring(config: MonitoringConfig) -> dict:
     return summary
 
 
+def run_batch_monitoring(config: MonitoringConfig) -> None:
+    if config.reset_history:
+        hist_path = config.output_dir / "monitoring_history.csv"
+        if hist_path.exists():
+            hist_path.unlink()
+
+    if config.batch_runs == 1:
+        run_monitoring(config)
+        return
+
+    batch_files = create_batch_files(
+        reference_csv=config.reference_csv,
+        batches_dir=config.batches_dir,
+        n_runs=config.batch_runs,
+    )
+
+    print(f"\nBatch mode activo: {len(batch_files)} lotes en {config.batches_dir}")
+
+    for i, batch_file in enumerate(batch_files, start=1):
+        print(f"\n[Corrida {i}/{len(batch_files)}] Lote actual: {batch_file}")
+        cfg_i = MonitoringConfig(
+            reference_csv=config.reference_csv,
+            current_csv=batch_file,
+            output_dir=config.output_dir,
+            periodicity=config.periodicity,
+            sample_fraction=config.sample_fraction,
+            min_sample_size=config.min_sample_size,
+            batch_runs=1,
+            batches_dir=config.batches_dir,
+            reset_history=False,
+        )
+        run_monitoring(cfg_i)
+
+
 if __name__ == "__main__":
     args = parse_args()
-    run_monitoring(args)
+    run_batch_monitoring(args)

@@ -15,6 +15,7 @@ mlops-venv/
 
 # Jupyter
 .ipynb_checkpoints/
+src/executive_charts.ipynb
 
 # VSCode
 .vscode/
@@ -36,6 +37,7 @@ data/intermediate/
 data/processed/
 features_engineered.csv
 src/monitoring_outputs/
+monitoring_batches/
 
 # MLflow
 mlruns/
