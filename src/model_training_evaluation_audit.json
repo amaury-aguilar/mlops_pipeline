@@ -1,0 +1,74 @@
+{
+  "n_total": 10763,
+  "n_train": 8610,
+  "n_test": 2153,
+  "cv_folds": 10,
+  "pycaret_selection": {
+    "selected_origin": "best_single_model_sklearn_fallback",
+    "selected_auc_pycaret": null,
+    "base_auc_pycaret": null,
+    "blend_auc_pycaret": null,
+    "blending_used": true,
+    "folds": 10,
+    "fallback_used": true,
+    "fallback_reason": "PyCaret no disponible: No module named 'pycaret'",
+    "selected_auc_fallback": 1.0
+  },
+  "best_sklearn_params": {
+    "model__n_estimators": 150,
+    "model__min_samples_split": 5,
+    "model__min_samples_leaf": 1,
+    "model__max_features": "log2",
+    "model__max_depth": 12
+  },
+  "best_sklearn_score_cv_auc": 1.0,
+  "cv_summary_mean_std": {
+    "folds": 10,
+    "roc_auc_mean": 1.0,
+    "roc_auc_std": 0.0,
+    "f1_mean": 1.0,
+    "f1_std": 0.0,
+    "precision_mean": 1.0,
+    "precision_std": 0.0,
+    "recall_mean": 1.0,
+    "recall_std": 0.0,
+    "accuracy_mean": 1.0,
+    "accuracy_std": 0.0
+  },
+  "holdout_metrics": {
+    "roc_auc": 1.0,
+    "f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "accuracy": 1.0
+  },
+  "leaderboard_top_rows": [
+    {
+      "Model": "rf",
+      "AUC": 1.0,
+      "AUC_std": 3.700743415417188e-17
+    },
+    {
+      "Model": "gb",
+      "AUC": 1.0,
+      "AUC_std": 0.0
+    },
+    {
+      "Model": "xgb",
+      "AUC": 0.9999390986601705,
+      "AUC_std": 0.00019258694641708027
+    },
+    {
+      "Model": "logreg",
+      "AUC": 0.9804303887903856,
+      "AUC_std": 0.01240093922614111
+    },
+    {
+      "Model": "blend_top3",
+      "AUC": 1.0,
+      "AUC_std": 0.0
+    }
+  ],
+  "selected_model_class_pycaret": "RandomForestClassifier",
+  "selected_model_class_sklearn": "RandomForestClassifier"
+}
