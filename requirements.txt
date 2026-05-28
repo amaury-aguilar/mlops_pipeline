@@ -1,15 +1,21 @@
-pandas
-numpy
-openpyxl
-python-dotenv
-db-dtypes
-jupyter
-notebook
-ipykernel
-seaborn
-ipywidgets
-scikit-learn
-xgboost
-pydantic
-fastapi
-uvicorn[standard]
+# Entorno recomendado: Python 3.11.x
+# PyCaret 3.3.2 no es compatible de forma estable con Python 3.13.
+
+pandas==2.1.4
+numpy==1.26.4
+scipy==1.11.4
+matplotlib==3.7.5
+seaborn==0.13.2
+openpyxl==3.1.5
+python-dotenv==1.0.1
+db-dtypes==1.4.3
+jupyter==1.1.1
+notebook==7.4.3
+ipykernel==6.29.5
+ipywidgets==8.1.7
+scikit-learn==1.4.2
+xgboost==2.1.1
+pycaret==3.3.2
+pydantic==2.11.5
+fastapi==0.115.12
+uvicorn[standard]==0.34.3

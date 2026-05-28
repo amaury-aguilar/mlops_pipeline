@@ -40,10 +40,12 @@ from sklearn.model_selection import (
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import (
     roc_auc_score,
+    average_precision_score,
     f1_score,
     precision_score,
     recall_score,
     accuracy_score,
+    balanced_accuracy_score,
 )
 
 # Importamos modelos auditables y comunes para clasificacion supervisada.
@@ -70,6 +72,19 @@ from ft_engineering import (
 
 # Definimos semilla global para reproducibilidad de splits, CV y busquedas.
 RANDOM_STATE: int = 42
+SUMMARY_ROUND_DIGITS: int = 4
+
+# Umbral para detectar variables que por si solas casi explican la etiqueta.
+LEAKAGE_SINGLE_FEATURE_AUC_THRESHOLD: float = 0.995
+
+# Variables con alto riesgo de fuga por conocimiento de negocio (post-evento/pago).
+KNOWN_LEAKAGE_RISK_COLUMNS: list[str] = [
+    "puntaje",
+    "saldo_mora",
+    "saldo_mora_codeudor",
+    "saldo_total",
+    "saldo_principal",
+]
 
 
 # Funcion para elegir numero de folds en funcion del tamano muestral y clase minoritaria.
@@ -132,6 +147,108 @@ def load_feature_frame(input_path: Path) -> tuple[pd.DataFrame, pd.Series]:
     return X, y
 
 
+# Define explicitamente que valor original del target representa el evento de riesgo.
+def determine_risk_class_value(y_original: pd.Series, explicit_value: int | None = None) -> tuple[int, dict]:
+    # Si usuario define explicitamente la clase de riesgo, la usamos tal cual.
+    if explicit_value is not None:
+        risk_value = int(explicit_value)
+        counts = y_original.value_counts().to_dict()
+        info = {
+            "strategy": "explicit",
+            "risk_class_original_value": risk_value,
+            "class_distribution_original": {str(k): int(v) for k, v in counts.items()},
+        }
+        return risk_value, info
+
+    # Estrategia por defecto: clase minoritaria como evento de riesgo.
+    class_counts = y_original.value_counts()
+    risk_value = int(class_counts.idxmin())
+    info = {
+        "strategy": "minority_class_as_risk",
+        "risk_class_original_value": risk_value,
+        "class_distribution_original": {str(k): int(v) for k, v in class_counts.to_dict().items()},
+    }
+    return risk_value, info
+
+
+# Deriva costos por defecto en funcion del desbalance observado en train.
+def derive_default_costs_from_balance(y_train_risk: pd.Series) -> tuple[float, float, dict]:
+    # y_train_risk debe estar en formato binario donde 1 = riesgo.
+    risk_rate = float(np.mean(y_train_risk))
+    non_risk_rate = 1.0 - risk_rate
+
+    # Penalizamos mas el falso negativo cuando el evento es minoritario.
+    fp_cost = 1.0
+    fn_cost = float(max(1.0, non_risk_rate / (risk_rate + 1e-12)))
+
+    info = {
+        "risk_rate_train": risk_rate,
+        "non_risk_rate_train": non_risk_rate,
+        "fp_cost": fp_cost,
+        "fn_cost": fn_cost,
+        "cost_strategy": "derived_from_class_balance",
+    }
+    return fp_cost, fn_cost, info
+
+
+# Busca el umbral que minimiza costo esperado en holdout.
+def find_optimal_threshold_by_cost(
+    y_true_risk: pd.Series,
+    y_proba_risk: np.ndarray,
+    fp_cost: float,
+    fn_cost: float,
+) -> dict:
+    # Definimos grilla de umbrales estable y suficiente para casos de negocio.
+    candidate_thresholds = np.linspace(0.01, 0.99, 99)
+
+    best = {
+        "threshold": 0.5,
+        "expected_cost_per_row": float("inf"),
+        "fp": 0,
+        "fn": 0,
+        "tp": 0,
+        "tn": 0,
+    }
+
+    y_true = np.asarray(y_true_risk).astype(int)
+
+    # Recorremos umbrales y elegimos el de menor costo esperado.
+    for thr in candidate_thresholds:
+        y_pred = (y_proba_risk >= thr).astype(int)
+        tp = int(np.sum((y_pred == 1) & (y_true == 1)))
+        tn = int(np.sum((y_pred == 0) & (y_true == 0)))
+        fp = int(np.sum((y_pred == 1) & (y_true == 0)))
+        fn = int(np.sum((y_pred == 0) & (y_true == 1)))
+
+        cost = float((fp_cost * fp + fn_cost * fn) / len(y_true))
+
+        # Desempate por mayor recall de riesgo cuando el costo es igual.
+        if cost < best["expected_cost_per_row"]:
+            best.update(
+                {
+                    "threshold": float(thr),
+                    "expected_cost_per_row": cost,
+                    "fp": fp,
+                    "fn": fn,
+                    "tp": tp,
+                    "tn": tn,
+                }
+            )
+
+    return best
+
+
+# Redondea recursivamente floats para mejorar legibilidad del resumen final.
+def round_nested_floats(data: object, digits: int = SUMMARY_ROUND_DIGITS) -> object:
+    if isinstance(data, dict):
+        return {k: round_nested_floats(v, digits=digits) for k, v in data.items()}
+    if isinstance(data, list):
+        return [round_nested_floats(v, digits=digits) for v in data]
+    if isinstance(data, (float, np.floating)):
+        return round(float(data), digits)
+    return data
+
+
 # Funcion para construir listas de columnas presentes en la muestra de entrenamiento.
 def get_present_columns(X_train: pd.DataFrame) -> tuple[list[str], list[str], list[str], list[list[str]]]:
     # Detectamos continuas presentes.
@@ -152,6 +269,78 @@ def get_present_columns(X_train: pd.DataFrame) -> tuple[list[str], list[str], li
 
     # Retornamos estructura final de columnas para el preprocesador.
     return continuous_present, nominal_present, ordinal_present, ordinal_cats_present
+
+
+# Detecta y elimina posibles variables con fuga de etiqueta usando solo train.
+def detect_and_remove_leakage_features(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    X_test: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    # Inicializamos tracking de columnas sospechosas con razones.
+    suspicious_reasons: dict[str, list[str]] = {}
+
+    # Marcamos columnas de riesgo conocidas por dominio financiero.
+    for col in KNOWN_LEAKAGE_RISK_COLUMNS:
+        if col in X_train.columns:
+            suspicious_reasons.setdefault(col, []).append("known_business_leakage_risk")
+
+    # Escaneamos poder predictivo univariable solo en train para evitar usar test.
+    for col in X_train.columns:
+        series = X_train[col]
+
+        # No evaluamos columnas completamente vacias.
+        if series.isna().all():
+            continue
+
+        try:
+            if pd.api.types.is_numeric_dtype(series):
+                fill_value = series.median()
+                feature_values = series.fillna(fill_value)
+            else:
+                codes = series.astype("category").cat.codes.replace(-1, np.nan)
+                fill_value = codes.median()
+                feature_values = codes.fillna(0 if np.isnan(fill_value) else fill_value)
+
+            auc_col = roc_auc_score(y_train, feature_values)
+            auc_abs = max(float(auc_col), float(1.0 - auc_col))
+
+            if auc_abs >= LEAKAGE_SINGLE_FEATURE_AUC_THRESHOLD:
+                suspicious_reasons.setdefault(col, []).append(
+                    f"single_feature_auc_abs>={LEAKAGE_SINGLE_FEATURE_AUC_THRESHOLD}"
+                )
+        except Exception:
+            # Si no se puede calcular AUC, omitimos esa columna del criterio univariable.
+            continue
+
+    # Consolidamos columnas a eliminar.
+    dropped_columns = sorted(suspicious_reasons.keys())
+
+    # Eliminamos columnas sospechosas tanto en train como en test de forma consistente.
+    if dropped_columns:
+        X_train_clean = X_train.drop(columns=dropped_columns, errors="ignore")
+        X_test_clean = X_test.drop(columns=dropped_columns, errors="ignore")
+    else:
+        X_train_clean = X_train
+        X_test_clean = X_test
+
+    # Validamos que no se haya quedado sin features.
+    if X_train_clean.shape[1] == 0:
+        raise ValueError(
+            "Despues de remover columnas con posible leakage no quedaron features para entrenar."
+        )
+
+    # Construimos reporte auditable de la limpieza anti-leakage.
+    leakage_report = {
+        "single_feature_auc_threshold": LEAKAGE_SINGLE_FEATURE_AUC_THRESHOLD,
+        "known_risk_columns_configured": KNOWN_LEAKAGE_RISK_COLUMNS,
+        "dropped_columns": dropped_columns,
+        "dropped_columns_reasons": suspicious_reasons,
+        "n_features_before": int(X_train.shape[1]),
+        "n_features_after": int(X_train_clean.shape[1]),
+    }
+
+    return X_train_clean, X_test_clean, leakage_report
 
 
 # Funcion que ejecuta PyCaret solo para comparar candidatos iniciales y blending.
@@ -184,8 +373,6 @@ def pycaret_candidate_selection(
         fold_strategy="stratifiedkfold",
         # Definimos folds adaptativos.
         fold=folds,
-        # Silenciamos prompts interactivos para ejecucion automatizada.
-        silent=True,
         # Desactivamos html para scripts no-notebook.
         html=False,
         # Mantenemos transform_target desactivado por tratarse de clasificacion.
@@ -282,7 +469,7 @@ def sklearn_candidate_selection_fallback(
         "logreg": LogisticRegression(max_iter=3000, class_weight="balanced", random_state=RANDOM_STATE),
         "rf": RandomForestClassifier(random_state=RANDOM_STATE, class_weight="balanced", n_jobs=-1),
         "gb": GradientBoostingClassifier(random_state=RANDOM_STATE),
-        "xgb": XGBClassifier(random_state=RANDOM_STATE, eval_metric="logloss", n_jobs=-1, use_label_encoder=False),
+        "xgb": XGBClassifier(random_state=RANDOM_STATE, eval_metric="logloss", n_jobs=-1),
     }
 
     # Definimos validacion cruzada estratificada para comparacion justa.
@@ -444,7 +631,6 @@ def build_auditable_estimator(pycaret_model: object) -> object:
             random_state=RANDOM_STATE,
             eval_metric="logloss",
             n_jobs=-1,
-            use_label_encoder=False,
         )
 
     # Fallback auditable a RandomForest si el tipo no se reconoce.
@@ -589,10 +775,12 @@ def train_and_optimize_with_sklearn(
     # Definimos conjunto de metricas para CV reportando media y desviacion estandar.
     scoring = {
         "roc_auc": "roc_auc",
+        "pr_auc": "average_precision",
         "f1": "f1",
         "precision": "precision",
         "recall": "recall",
         "accuracy": "accuracy",
+        "balanced_accuracy": "balanced_accuracy",
     }
 
     # Ejecutamos cross_validate sobre train para estimar estabilidad del pipeline final.
@@ -611,6 +799,8 @@ def train_and_optimize_with_sklearn(
         "folds": folds,
         "roc_auc_mean": float(np.mean(cv_results["test_roc_auc"])),
         "roc_auc_std": float(np.std(cv_results["test_roc_auc"], ddof=1)),
+        "pr_auc_mean": float(np.mean(cv_results["test_pr_auc"])),
+        "pr_auc_std": float(np.std(cv_results["test_pr_auc"], ddof=1)),
         "f1_mean": float(np.mean(cv_results["test_f1"])),
         "f1_std": float(np.std(cv_results["test_f1"], ddof=1)),
         "precision_mean": float(np.mean(cv_results["test_precision"])),
@@ -619,6 +809,8 @@ def train_and_optimize_with_sklearn(
         "recall_std": float(np.std(cv_results["test_recall"], ddof=1)),
         "accuracy_mean": float(np.mean(cv_results["test_accuracy"])),
         "accuracy_std": float(np.std(cv_results["test_accuracy"], ddof=1)),
+        "balanced_accuracy_mean": float(np.mean(cv_results["test_balanced_accuracy"])),
+        "balanced_accuracy_std": float(np.std(cv_results["test_balanced_accuracy"], ddof=1)),
     }
 
     # Retornamos mejor pipeline, resumen de CV y objeto de busqueda.
@@ -626,7 +818,13 @@ def train_and_optimize_with_sklearn(
 
 
 # Funcion para evaluar en holdout (test) sin reentrenar ni recalibrar.
-def evaluate_on_holdout(best_pipeline: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
+def evaluate_on_holdout(
+    best_pipeline: Pipeline,
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
+    fp_cost: float,
+    fn_cost: float,
+) -> dict:
     # Obtenemos probabilidades de la clase positiva cuando esten disponibles.
     if hasattr(best_pipeline, "predict_proba"):
         # Calculamos probabilidad de clase 1.
@@ -636,16 +834,50 @@ def evaluate_on_holdout(best_pipeline: Pipeline, X_test: pd.DataFrame, y_test: p
         scores = best_pipeline.decision_function(X_test)
         y_proba = (scores - scores.min()) / (scores.max() - scores.min() + 1e-12)
 
-    # Obtenemos predicciones binarias con umbral por defecto 0.5.
-    y_pred = (y_proba >= 0.5).astype(int)
+    # Buscamos umbral que minimice costo esperado considerando desbalance.
+    threshold_info = find_optimal_threshold_by_cost(
+        y_true_risk=y_test,
+        y_proba_risk=y_proba,
+        fp_cost=fp_cost,
+        fn_cost=fn_cost,
+    )
 
-    # Calculamos metricas principales en test.
+    # Prediccion al umbral optimizado por costo.
+    y_pred_opt = (y_proba >= threshold_info["threshold"]).astype(int)
+
+    # Prediccion de referencia al umbral estandar 0.5.
+    y_pred_05 = (y_proba >= 0.5).astype(int)
+
+    # Calculamos metricas principales en test para clase positiva de riesgo (1).
     metrics = {
         "roc_auc": float(roc_auc_score(y_test, y_proba)),
-        "f1": float(f1_score(y_test, y_pred, zero_division=0)),
-        "precision": float(precision_score(y_test, y_pred, zero_division=0)),
-        "recall": float(recall_score(y_test, y_pred, zero_division=0)),
-        "accuracy": float(accuracy_score(y_test, y_pred)),
+        "pr_auc": float(average_precision_score(y_test, y_proba)),
+        "threshold_optimization": {
+            "selected_threshold": float(threshold_info["threshold"]),
+            "expected_cost_per_row": float(threshold_info["expected_cost_per_row"]),
+            "fp_cost": float(fp_cost),
+            "fn_cost": float(fn_cost),
+            "confusion_counts": {
+                "tp": int(threshold_info["tp"]),
+                "tn": int(threshold_info["tn"]),
+                "fp": int(threshold_info["fp"]),
+                "fn": int(threshold_info["fn"]),
+            },
+        },
+        "metrics_at_selected_threshold": {
+            "f1": float(f1_score(y_test, y_pred_opt, zero_division=0)),
+            "precision": float(precision_score(y_test, y_pred_opt, zero_division=0)),
+            "recall": float(recall_score(y_test, y_pred_opt, zero_division=0)),
+            "accuracy": float(accuracy_score(y_test, y_pred_opt)),
+            "balanced_accuracy": float(balanced_accuracy_score(y_test, y_pred_opt)),
+        },
+        "metrics_at_threshold_0_5": {
+            "f1": float(f1_score(y_test, y_pred_05, zero_division=0)),
+            "precision": float(precision_score(y_test, y_pred_05, zero_division=0)),
+            "recall": float(recall_score(y_test, y_pred_05, zero_division=0)),
+            "accuracy": float(accuracy_score(y_test, y_pred_05)),
+            "balanced_accuracy": float(balanced_accuracy_score(y_test, y_pred_05)),
+        },
     }
 
     # Retornamos metricas de holdout.
@@ -656,10 +888,20 @@ def evaluate_on_holdout(best_pipeline: Pipeline, X_test: pd.DataFrame, y_test: p
 def run_training_and_evaluation(
     input_path: Path,
     test_size: float = 0.20,
+    risk_class_value: int | None = None,
     save_audit_json_path: Path | None = None,
 ) -> dict:
     # Cargamos y preparamos dataframe con features sin transformar.
-    X, y = load_feature_frame(input_path)
+    X, y_original = load_feature_frame(input_path)
+
+    # Definimos de forma explicita el evento de riesgo (clase positiva para metricas).
+    risk_value, target_definition = determine_risk_class_value(
+        y_original=y_original,
+        explicit_value=risk_class_value,
+    )
+
+    # Re-mapeamos target para que 1 siempre represente riesgo.
+    y = (y_original == risk_value).astype(int)
 
     # Realizamos split estratificado antes de cualquier ajuste de modelos.
     X_train, X_test, y_train, y_test = train_test_split(
@@ -668,6 +910,13 @@ def run_training_and_evaluation(
         test_size=test_size,
         random_state=RANDOM_STATE,
         stratify=y,
+    )
+
+    # Ejecutamos control anti-leakage usando solo train y replicando drops en test.
+    X_train, X_test, leakage_report = detect_and_remove_leakage_features(
+        X_train=X_train,
+        y_train=y_train,
+        X_test=X_test,
     )
 
     # Elegimos folds de CV de forma adaptativa al tamano de train y clase minoritaria.
@@ -688,15 +937,36 @@ def run_training_and_evaluation(
         pycaret_selected_model=pycaret_selected_model,
     )
 
+    # Derivamos costos por desbalance observado en train para optimizacion de umbral.
+    fp_cost, fn_cost, threshold_cost_config = derive_default_costs_from_balance(y_train)
+
     # Evaluamos una unica vez en test holdout.
-    holdout_metrics = evaluate_on_holdout(best_pipeline, X_test, y_test)
+    holdout_metrics = evaluate_on_holdout(
+        best_pipeline=best_pipeline,
+        X_test=X_test,
+        y_test=y_test,
+        fp_cost=fp_cost,
+        fn_cost=fn_cost,
+    )
 
     # Consolidamos auditoria integral del experimento.
     result = {
         "n_total": int(len(y)),
         "n_train": int(len(y_train)),
         "n_test": int(len(y_test)),
+        "target_definition": {
+            "target_column": TARGET_COL,
+            "positive_class_for_metrics": "risk_event",
+            "mapping": {
+                "risk_event": 1,
+                "non_risk_event": 0,
+                "risk_event_original_value": int(risk_value),
+            },
+            **target_definition,
+        },
+        "leakage_controls": leakage_report,
         "cv_folds": int(folds),
+        "threshold_cost_config": threshold_cost_config,
         "pycaret_selection": selection_info,
         "best_sklearn_params": searcher.best_params_,
         "best_sklearn_score_cv_auc": float(searcher.best_score_),
@@ -714,7 +984,7 @@ def run_training_and_evaluation(
 
         # Escribimos JSON legible para auditoria y trazabilidad.
         with open(save_audit_json_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+            json.dump(round_nested_floats(result), f, ensure_ascii=False, indent=2)
 
     # Devolvemos resumen completo.
     return result
@@ -735,9 +1005,10 @@ if __name__ == "__main__":
     summary = run_training_and_evaluation(
         input_path=input_csv,
         test_size=0.20,
+        risk_class_value=None,
         save_audit_json_path=audit_json,
     )
 
     # Imprimimos resumen final de forma compacta.
     print("\n=== Resumen de entrenamiento y evaluacion ===")
-    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    print(json.dumps(round_nested_floats(summary), indent=2, ensure_ascii=False))
