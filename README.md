@@ -2,12 +2,22 @@
 
 Pipeline inicial de analisis para desarrollar un modelo predictivo con datos historicos de creditos, orientado a anticipar el comportamiento de nuevos usuarios.
 
+## Caso de negocio
+
+Empresa financiera que requiere anticipar el comportamiento de pago de nuevos clientes para mejorar decisiones de originacion, priorizacion de revisiones y gestion de riesgo.
+
+Objetivo analitico:
+- Predecir riesgo de no pago usando historial de creditos.
+- Optimizar umbral de decision con enfoque de costo de negocio.
+- Monitorear drift de datos para evitar degradacion silenciosa del modelo.
+
 ## Objetivo de esta etapa
 
 - Cargar y validar una fuente no productiva en CSV.
 - Realizar comprension y analisis exploratorio de datos (EDA).
 - Definir reglas de validacion de calidad para etapas posteriores.
 - Identificar transformaciones y atributos derivados candidatos para modelado.
+- Implementar monitoreo de drift y visualizacion ejecutiva en Streamlit.
 
 ## Estructura actual del repositorio
 
@@ -23,6 +33,8 @@ mlops_pipeline/
 	├── Comprension_eda.ipynb
 	├── ft_engineering.py
 	├── model_training_evaluation.py
+	├── model_monitoring.py
+	├── streamlit_monitoring_app.py
 	├── model_training_evaluation_audit.json
 	└── model_training_evaluation_audit_guide.txt
 ```
@@ -118,6 +130,30 @@ Ese comando:
 - optimiza el candidato final con `scikit-learn`
 - guarda el resumen en `src/model_training_evaluation_audit.json`
 
+Probar monitoreo de drift (Paso 3):
+
+```bash
+"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" python src/model_monitoring.py
+```
+
+Ese comando:
+- construye muestra periodica del lote actual
+- adjunta pronosticos (o genera proxy auditable si no vienen del scoring productivo)
+- calcula KS, PSI, Jensen-Shannon y Chi-cuadrado por variable
+- guarda reportes en `src/monitoring_outputs/`
+
+Levantar dashboard de monitoreo en Streamlit:
+
+```bash
+"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" streamlit run src/streamlit_monitoring_app.py
+```
+
+La app incluye:
+- comparacion historico vs actual
+- tabla de drift por variable con severidad
+- evolucion temporal del drift
+- recomendaciones automaticas (semaforo: ok / warning / critical)
+
 Para notebooks:
 
 ```bash
@@ -130,6 +166,8 @@ Orden recomendado:
 2. `src/Comprension_eda.ipynb`
 3. `"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" python src/ft_engineering.py`
 4. `"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" python src/model_training_evaluation.py`
+5. `"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" python src/model_monitoring.py`
+6. `"/Users/amaury/miniconda3/bin/conda" run -p "$PWD/mlops-venv" streamlit run src/streamlit_monitoring_app.py`
 
 ## Como leer el archivo de auditoria
 
@@ -152,3 +190,4 @@ Para una guia campo por campo, revisa `src/model_training_evaluation_audit_guide
 - En una arquitectura empresarial, la capa de ingestion y curacion de datos se resuelve antes de la fase de modelado.
 - Las reglas de validacion definidas en EDA deben migrarse a pruebas automatizadas de calidad en etapas siguientes.
 - Si aparecen metricas perfectas (`1.0` en todo), revisa posible leakage de negocio o variables con informacion post-evento.
+- Los reportes de monitoreo en `src/monitoring_outputs/` son artefactos generados y no deben versionarse.

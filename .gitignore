@@ -35,6 +35,7 @@ data/raw/
 data/intermediate/
 data/processed/
 features_engineered.csv
+src/monitoring_outputs/
 
 # MLflow
 mlruns/
